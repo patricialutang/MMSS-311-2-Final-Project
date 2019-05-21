@@ -71,7 +71,46 @@ for(i in 1:73){
 }
 ```
 
-# Part 2: 
+# Part 2: Prepping for Text Analysis
 
+``` {r}
+# DTM for keywords
+ThronesCorpus <- VCorpus(VectorSource(Thrones$keywords)) %>% tm_map(removeWords, stopwords("english"))
+KeywordDTM = DocumentTermMatrix(ThronesCorpus) 
+KeywordDTMclean = KeywordDTM %>% tidy()
+```
 
+# Part 3: Frequency Analysis
 
+```{r}
+Keyword_Matrix <-as.matrix(KeywordDTM)
+freq <- sort(colSums(Keyword_Matrix), decreasing = TRUE)
+freqdf <-as.data.frame(freq)
+top <- head(freq, 20)
+
+top_df <- data.frame(word = names(top), freq = top)
+Keywordfreq <- ggplot(data=top_df, aes(x=reorder(word, -freq), y=freq)) + geom_bar(stat="identity") + xlab("Keywords") + ylab("Frequency") + theme(legend.title = element_text(size = 3), legend.text = element_text(size = 0.01)) + ggtitle("Most Frequent Game of Thrones Keywords")
+Keywordfreq
+```
+
+``` {r}
+Thrones$epnumeral <- c(1:73)
+Bestepisodes <- ggplot(data=Thrones, aes(x=epnumeral, y=rating)) + geom_line() + geom_point() + ggtitle("GoT Episode Rating Over Time") + xlab("Episodes") + ylab("Rating") + theme(legend.title = element_text(size = 3), legend.text = element_text(size = 0.01))
+Bestepisodes
+```
+
+# Part 3: Analysis
+
+``` {r}
+# Creating a dummy for nudity
+library(stringr)
+Thrones$ND <- ifelse(str_detect(Thrones$keywords, "nudity") == "TRUE", "1", "0") 
+Thrones$ND <- as.numeric(Thrones$ND)
+```
+
+``` {r}
+NDlinear <- lm(Thrones$rating ~ Thrones$ND, data = Thrones)
+summary(NDlinear)
+```
+
+Relationship between nudity and Game of Thrones episode rating is not statistically significant. 
