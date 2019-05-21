@@ -1,0 +1,77 @@
+---
+title: 'Game of Thrones: IMDb Scraping and Analysis'
+author: "Patricia Tang"
+date: "5/20/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Part 1: Scraping the Data
+
+``` {r}
+library(xml2)
+library(rvest)
+library(tm)
+library(SnowballC)
+library(broom)
+library(tidytext)
+library(ggplot2)
+library(lubridate)
+library(dplyr)
+```
+
+``` {r}
+# from Napon - GENERAL information about episodes. no keywords, no directors, etc. 
+get_info <- function(x){
+  page <- read_html(paste0("https://www.imdb.com/title/tt0944947/episodes?season=",x))
+  season <- x
+  ep_title <- page %>% html_nodes("#episodes_content strong a") %>% html_text()
+  ep_num <- page %>% html_nodes("#episodes_content strong a") %>% html_attr("href") %>% gsub(".*ep", "", .)
+  text <- page %>% html_nodes(".item_description") %>% html_text() %>% gsub("\\n ", "", .)
+  rating <- page %>% html_nodes(".ipl-rating-star.small .ipl-rating-star__rating") %>% html_text() %>% as.numeric()
+  airdate <- page %>% html_nodes(".airdate") %>% html_text() %>% dmy()
+  links <- page %>%
+  html_nodes("#episodes_content strong a") %>%
+  html_attr('href')
+  return(data.frame(season, ep_title, ep_num, text, rating, airdate, links, stringsAsFactors = F))
+}
+
+Thrones <- lapply(1:8, get_info) %>% bind_rows()
+```
+
+``` {r}
+# to get full links
+for(i in 1:73){
+  Thrones$links[i] <- paste("https://www.imdb.com", Thrones$links[i], sep ='')
+}
+```
+
+``` {r}
+# to get href links for keyword scraping
+Thrones$keywordlinks <- substr(Thrones$links,1,nchar(Thrones$links)-14)
+```
+
+``` {r}
+# to make full links for all keyword links
+for(i in 1:73){
+  Thrones$keywordlinks[i] <- paste(Thrones$keywordlinks[i], "keywords?ref_=tt_stry_kw", sep ='') 
+  # "keywords?ref_=tt_stry_kw" returns keyword page for ALL IMDb pages here
+}
+```
+
+``` {r}
+# to get keyword data
+for(i in 1:73){
+  link = as.character(Thrones$keywordlinks[i])
+  Thrones$keywords[i] <- read_html(link) %>% html_nodes("div.sodatext") %>%
+    html_text %>% paste(collapse = "\n\n")
+}
+```
+
+# Part 2: 
+
+
+
