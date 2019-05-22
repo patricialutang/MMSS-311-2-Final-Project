@@ -51,7 +51,7 @@ for(i in 1:73){
 
 ``` {r}
 # to get href links for keyword scraping
-Thrones$keywordlinks <- substr(Thrones$links,1,nchar(Thrones$links)-14)
+Thrones$keywordlinks <- substr(Thrones$links, start=1, stop=37)
 ```
 
 ``` {r}
@@ -71,6 +71,24 @@ for(i in 1:73){
 }
 ```
 
+``` {r}
+# to get directors/writing credits
+Thrones$creditlinks <- substr(Thrones$links, start=1, stop=37)
+for(i in 1:73){
+  Thrones$creditlinks[i] <- paste(Thrones$creditlinks[i], "fullcredits?ref_=tt_ov_wr", sep ='') 
+  # "fullcredits?ref_=tt_ov_wr" returns keyword page for ALL IMDb pages here
+}
+```
+
+``` {r}
+# to get credit data
+for(i in 1:73){
+  link = as.character(Thrones$creditlinks[i])
+  Thrones$credits[i] <- read_html(link) %>% html_nodes("fullcredits_content.name a") %>%
+    html_text %>% paste(collapse = "\n\n")
+}
+```
+
 # Part 2: Prepping for Text Analysis
 
 ``` {r}
@@ -80,9 +98,19 @@ KeywordDTM = DocumentTermMatrix(ThronesCorpus)
 KeywordDTMclean = KeywordDTM %>% tidy()
 ```
 
+``` {r}
+# DTM for text
+TextCorpus <- VCorpus(VectorSource(Thrones$text)) %>% tm_map(removePunctuation) %>% tm_map(tolower) %>% tm_map(removeWords, stopwords("english")) %>% tm_map(PlainTextDocument)
+TextDTM = DocumentTermMatrix(TextCorpus) 
+TextDTM_copy = TextDTM %>% removeSparseTerms(.99)
+TextDTMclean = TextDTM_copy %>% tidy()
+tfidf <- TextDTMclean %>%bind_tf_idf(term,document, count)
+```
+
 # Part 3: Frequency Analysis
 
 ```{r}
+# Keywords
 Keyword_Matrix <-as.matrix(KeywordDTM)
 freq <- sort(colSums(Keyword_Matrix), decreasing = TRUE)
 freqdf <-as.data.frame(freq)
@@ -94,12 +122,55 @@ Keywordfreq
 ```
 
 ``` {r}
+# Synopsis
+TextMatrix <-as.matrix(TextDTM)
+freq2 <- sort(colSums(TextMatrix), decreasing = TRUE)
+freqdf2 <-as.data.frame(freq2)
+top2 <- head(freq2, 20)
+
+top_df2 <- data.frame(word = names(top2), freq = top2)
+Textfreq <- ggplot(data=top_df2, aes(x=reorder(word, -freq), y=freq)) + geom_bar(stat="identity") + xlab("Keywords") + ylab("Frequency") + theme(legend.title = element_text(size = 3), legend.text = element_text(size = 0.01)) + ggtitle("Most Frequent Game of Thrones Synopsis Keywords")
+Textfreq
+```
+
+``` {r}
 Thrones$epnumeral <- c(1:73)
 Bestepisodes <- ggplot(data=Thrones, aes(x=epnumeral, y=rating)) + geom_line() + geom_point() + ggtitle("GoT Episode Rating Over Time") + xlab("Episodes") + ylab("Rating") + theme(legend.title = element_text(size = 3), legend.text = element_text(size = 0.01))
 Bestepisodes
 ```
+# Part 4: Topic Models
 
-# Part 3: Analysis
+``` {r}
+# Keywords, new VCorpus (stemmed)
+library(topicmodels)
+library(stm)
+KeyCorpus2 <- VCorpus(VectorSource(Thrones$keywords)) %>% tm_map(removePunctuation) %>% tm_map(tolower) %>% tm_map(removeWords, stopwords("english")) %>% tm_map(stemDocument) %>% tm_map(PlainTextDocument)
+KeyDTM2 = DocumentTermMatrix(KeyCorpus2) 
+
+out <- stm::readCorpus(KeyDTM2, type = 'slam')
+mod.out <- stm(documents = out$documents,
+               vocab = out$vocab,
+               K = 3, 
+               data = Thrones)
+summary(mod.out)
+```
+
+``` {r}
+# Text, new VCorpus (stemmed)
+TextCorpus2 <- VCorpus(VectorSource(Thrones$text)) %>% tm_map(removePunctuation) %>% tm_map(tolower) %>% tm_map(removeWords, stopwords("english")) %>% tm_map(stemDocument) %>% tm_map(PlainTextDocument)
+TextDTM2 = DocumentTermMatrix(TextCorpus2) 
+
+out2 <- stm::readCorpus(TextDTM2, type = 'slam')
+mod.out2 <- stm(documents = out2$documents,
+               vocab = out2$vocab,
+               K = 4, 
+               data = Thrones)
+summary(mod.out2)
+```
+
+# Part 5: Regression Analysis
+
+TOPIC MODELS GO HERE
 
 ``` {r}
 # Creating a dummy for nudity
