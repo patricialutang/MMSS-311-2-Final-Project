@@ -169,17 +169,166 @@ Clearly, we can see that Benioff and Weiss' individually-directed episodes are m
 Neil Marshall, Alex Graves, and Matt Shakman clearly directed the highest-rated episodes. Come back to this later. 
 
 ``` {r}
-# Scatter plot - episode ratings by director
-ruh ruoh
-```
-
-``` {r}
 Thrones$epnumeral <- c(1:73)
 Bestepisodes <- ggplot(data=Thrones, aes(x=epnumeral, y=rating)) + geom_line() + geom_point() + ggtitle("GoT Episode Rating Over Time") + xlab("Episodes") + ylab("Rating") + theme(legend.title = element_text(size = 3), legend.text = element_text(size = 0.01))
 Bestepisodes
 ```
 
-# Part 4: Topic Models
+# Part 4: "Character Studies"
+
+``` {r}
+# Does episode rating change if we have popular characters in them?
+# Let's create indicator variables for whether or not popular characters appear. Key players as defined by prior frequency analysis in synopsis info: Jon, Daenerys, Tyrion, Arya, Sansa, Jaime, Cersei, Theon, Robb, Bran, Sam, Stannis. 
+# (Too many characters, let's keep it simple!!)
+```
+
+``` {r}
+# function for later
+FUNction <- function(x) {
+  c(min = min(x), max = max(x), 
+    mean = mean(x), median = median(x), 
+    std = sd(x))
+}
+```
+
+``` {r}
+Thrones$jon <- ifelse(str_detect(Thrones$text, "Jon") == "TRUE", "1", "0") 
+tapply(Thrones$rating, Thrones$jon, FUNction)
+cbind(Presence = unique(Thrones$jon), 
+      do.call(rbind, tapply(Thrones$rating, Thrones$jon, FUNction)))
+```
+
+``` {r}
+chisq.test(table(Thrones$rating, Thrones$jon))
+```
+
+``` {r}
+Thrones$dany <- ifelse(str_detect(Thrones$text, "Daenerys") == "TRUE", "1", "0") 
+tapply(Thrones$rating, Thrones$dany, FUNction)
+cbind(Presence = unique(Thrones$dany), 
+      do.call(rbind, tapply(Thrones$rating, Thrones$dany, FUNction)))
+```
+
+``` {r}
+chisq.test(table(Thrones$rating, Thrones$dany))
+```
+
+``` {r}
+Thrones$tyrion <- ifelse(str_detect(Thrones$text, "Tyrion") == "TRUE", "1", "0") 
+tapply(Thrones$rating, Thrones$tyrion, FUNction)
+cbind(Presence = unique(Thrones$tyrion), 
+      do.call(rbind, tapply(Thrones$rating, Thrones$tyrion, FUNction)))
+```
+
+``` {r}
+chisq.test(table(Thrones$rating, Thrones$tyrion))
+```
+
+``` {r}
+Thrones$arya <- ifelse(str_detect(Thrones$text, "Arya") == "TRUE", "1", "0") 
+tapply(Thrones$rating, Thrones$arya, FUNction)
+cbind(Presence = unique(Thrones$arya), 
+      do.call(rbind, tapply(Thrones$rating, Thrones$arya, FUNction)))
+```
+
+``` {r}
+chisq.test(table(Thrones$rating, Thrones$arya))
+```
+
+``` {r}
+Thrones$sansa <- ifelse(str_detect(Thrones$text, "Sansa") == "TRUE", "1", "0") 
+tapply(Thrones$rating, Thrones$sansa, FUNction)
+cbind(Presence = unique(Thrones$sansa), 
+      do.call(rbind, tapply(Thrones$rating, Thrones$sansa, FUNction)))
+```
+
+``` {r}
+chisq.test(table(Thrones$rating, Thrones$sansa))
+```
+
+``` {r}
+Thrones$jaime <- ifelse(str_detect(Thrones$text, "Jaime") == "TRUE", "1", "0")
+tapply(Thrones$rating, Thrones$jaime, FUNction)
+cbind(Presence = unique(Thrones$jaime), 
+      do.call(rbind, tapply(Thrones$rating, Thrones$jaime, FUNction)))
+```
+
+``` {r}
+chisq.test(table(Thrones$rating, Thrones$jaime))
+```
+
+``` {r}
+Thrones$cersei <- ifelse(str_detect(Thrones$text, "Cersei") == "TRUE", "1", "0")
+tapply(Thrones$rating, Thrones$cersei, FUNction)
+cbind(Presence = unique(Thrones$cersei), 
+      do.call(rbind, tapply(Thrones$rating, Thrones$cersei, FUNction)))
+```
+
+``` {r}
+chisq.test(table(Thrones$rating, Thrones$cersei))
+```
+
+``` {r}
+Thrones$theon <- ifelse(str_detect(Thrones$text, "Theon") == "TRUE", "1", "0")
+tapply(Thrones$rating, Thrones$theon, FUNction)
+cbind(Presence = unique(Thrones$theon), 
+      do.call(rbind, tapply(Thrones$rating, Thrones$theon, FUNction)))
+```
+
+``` {r}
+chisq.test(table(Thrones$rating, Thrones$theon))
+```
+
+``` {r}
+Thrones$robb <- ifelse(str_detect(Thrones$text, "Robb") == "TRUE", "1", "0")
+tapply(Thrones$rating, Thrones$robb, FUNction)
+cbind(Presence = unique(Thrones$robb), 
+      do.call(rbind, tapply(Thrones$rating, Thrones$robb, FUNction)))
+```
+
+``` {r}
+chisq.test(table(Thrones$rating, Thrones$robb))
+```
+
+``` {r}
+Thrones$bran <- ifelse(str_detect(Thrones$text, "Bran") == "TRUE", "1", "0")
+tapply(Thrones$rating, Thrones$bran, FUNction)
+cbind(Presence = unique(Thrones$bran), 
+      do.call(rbind, tapply(Thrones$rating, Thrones$bran, FUNction)))
+```
+
+``` {r}
+chisq.test(table(Thrones$rating, Thrones$bran))
+```
+
+``` {r}
+Thrones$sam <- ifelse(str_detect(Thrones$text, "Sam") == "TRUE", "1", "0")
+tapply(Thrones$rating, Thrones$sam, FUNction)
+cbind(Presence = unique(Thrones$sam), 
+      do.call(rbind, tapply(Thrones$rating, Thrones$sam, FUNction)))
+```
+
+``` {r}
+chisq.test(table(Thrones$rating, Thrones$sam))
+```
+
+``` {r}
+Thrones$stannis <- ifelse(str_detect(Thrones$text, "Stannis") == "TRUE", "1", "0")
+tapply(Thrones$rating, Thrones$stannis, FUNction)
+cbind(Presence = unique(Thrones$stannis), 
+      do.call(rbind, tapply(Thrones$rating, Thrones$stannis, FUNction)))
+```
+
+``` {r}
+chisq.test(table(Thrones$rating, Thrones$sam))
+```
+
+``` {r}
+# Creating an aggregate variable - character "score" (how many popular characters show up in a given episode's synopsis?)
+
+```
+
+# Part 5: Topic Models
 
 ``` {r, results = "hide"}
 # Keywords, new VCorpus (stemmed)
@@ -209,7 +358,7 @@ mod.out2 <- stm(documents = out2$documents,
 summary(mod.out2)
 ```
 
-# Part 5: Regression Analysis
+# Part 6: Regression Analysis
 
 ``` {r}
 # Creating a dummy for nudity
@@ -226,5 +375,5 @@ summary(NDlinear)
 Relationship between nudity and Game of Thrones episode rating is not statistically significant. 
 
 ``` {r}
-
+# 
 ```
