@@ -325,7 +325,20 @@ chisq.test(table(Thrones$rating, Thrones$sam))
 
 ``` {r}
 # Creating an aggregate variable - character "score" (how many popular characters show up in a given episode's synopsis?)
-
+# Jon, Daenerys, Tyrion, Arya, Sansa, Jaime, Cersei, Theon, Robb, Bran, Sam, Stannis
+Thrones$jon <- as.numeric(Thrones$jon)
+Thrones$dany <- as.numeric(Thrones$dany)
+Thrones$tyrion <- as.numeric(Thrones$tyrion)
+Thrones$arya <- as.numeric(Thrones$arya)
+Thrones$sansa <- as.numeric(Thrones$sansa)
+Thrones$jaime <- as.numeric(Thrones$jaime)
+Thrones$cersei <- as.numeric(Thrones$cersei)
+Thrones$theon <- as.numeric(Thrones$theon)
+Thrones$robb <- as.numeric(Thrones$robb)
+Thrones$bran <- as.numeric(Thrones$bran)
+Thrones$sam <- as.numeric(Thrones$sam)
+Thrones$stannis <- as.numeric(Thrones$stannis)
+Thrones$charascore <- Thrones$jon + Thrones$dany + Thrones$tyrion + Thrones$arya + Thrones$sansa + Thrones$jaime + Thrones$cersei + Thrones$theon + Thrones$robb + Thrones$bran + Thrones$sam + Thrones$stannis
 ```
 
 # Part 5: Topic Models
@@ -361,7 +374,7 @@ summary(mod.out2)
 # Part 6: Regression Analysis
 
 ``` {r}
-# Creating a dummy for nudity
+# A low-level example: does nudity affect rating?
 library(stringr)
 Thrones$ND <- ifelse(str_detect(Thrones$keywords, "nudity") == "TRUE", "1", "0") 
 Thrones$ND <- as.numeric(Thrones$ND)
@@ -375,5 +388,36 @@ summary(NDlinear)
 Relationship between nudity and Game of Thrones episode rating is not statistically significant. 
 
 ``` {r}
-# 
+# What about violence?
+library(stringr)
+Thrones$violence <- ifelse(str_detect(Thrones$keywords, "violence") == "TRUE", "1", "0") 
+Thrones$violence <- as.numeric(Thrones$violence)
 ```
+
+``` {r}
+Violencelinear <- lm(Thrones$rating ~ Thrones$violence, data = Thrones)
+summary(Violencelinear)
+```
+
+Relationship between violence and Game of Thrones episode rating is not statistically significant. 
+
+``` {r}
+# Chara score 
+Charalinear <- lm(Thrones$rating ~ Thrones$charascore, data = Thrones)
+summary(Charalinear)
+```
+
+Statistically significant relationship between character score (as defined earlier) and rating. Thus, while individual characters did not seem to affect rating (as per chi-squared test), rating seems to be affected by the number of characters highlighted in a given episode. 
+
+``` {r}
+# To determine involvement of directors - dummy variables
+```
+
+``` {r}
+# Determining if a departure from the books affects episode quality. 
+# Using this article from 2015 (https://www.forbes.com/sites/insertcoin/2015/04/12/why-game-of-thrones-finally-outrunning-the-books-is-a-good-thing/#6bfc36c7524b) as an indicator for when Game of Thrones departed from the books. 
+# Creating a dummy variable - all episodes after season 4 finale will be counted as "departed from the books" (1) otherwise (0)
+
+```
+
+
