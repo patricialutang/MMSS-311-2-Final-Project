@@ -410,21 +410,46 @@ summary(Charalinear)
 Statistically significant relationship between character score (as defined earlier) and rating. Thus, while individual characters did not seem to affect rating (as per chi-squared test), rating seems to be affected by the number of characters highlighted in a given episode. 
 
 ``` {r}
-# To determine involvement of directors - dummy variables
+# To determine involvement of directors - dummy variable for whether or not an episode was directed by an outside force or by the two writers (D&D colloquially)
+# Since they are credited together usually, we can use one of the two
+Thrones$DandD <- ifelse(str_detect(Thrones$director, "D.B. Weiss") == "TRUE", "1", "0") 
+Thrones$DandD <- as.numeric(Thrones$DandD)
+```
+
+``` {r}
+# to test methodology
+test <- ddply(Thrones, .(director), summarize,  rating=mean(DandD))
 ```
 
 ``` {r}
 # Determining if a departure from the books affects episode quality. 
 
 # Using this article from 2015 (https://www.forbes.com/sites/insertcoin/2015/04/12/why-game-of-thrones-finally-outrunning-the-books-is-a-good-thing/#6bfc36c7524b) as an indicator for when Game of Thrones departed from the books. 
+```
 
-# Creating a dummy variable - all episodes after season 4 finale will be counted as "departed from the books" (1) otherwise (0)
+``` {r}
+# Regression discontinuity model - rating vs. book material
+reg.1=RDestimate(rating~epnumeral,data=Thrones,cutpoint = 41)
+plot(reg.1)
+title(main="Episode Rating Over Time", xlab="Episode Number",ylab="User Rating (out of 10)")
+```
+
+clearly a dropoff after episode 40.
+
+``` {r}
+# What is the biggest factor in terms of episode quality - character score (how many characters that people like are in an episode), whether or not an episode was directed by an outside talent (not the writers of the show themselves), whether or not book material was still there to guide the writing team (as defined by article)?
+```
+
+``` {r}
+# Creating a dummy variable - all episodes after season 4 finale will be counted as "departed from the books" (1) otherwise (0) 
 for(i in 1:73){
-  Thrones$depart <- ifelse(Thrones$season>4, "1", "0")
+  Thrones$depart <- ifelse(Thrones$epnumeral>41, "1", "0")
 }
 ```
 
 ``` {r}
-# TEST - regression discontinuity model
+# Linear model 
+Thronesfactors <- lm(rating ~ depart + charascore + DandD, data = Thrones)
+summary(Thronesfactors)
 ```
 
