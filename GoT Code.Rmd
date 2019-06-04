@@ -417,6 +417,9 @@ Statistically significant relationship between character score (as defined earli
 # Determining if a departure from the books affects episode quality. 
 # Using this article from 2015 (https://www.forbes.com/sites/insertcoin/2015/04/12/why-game-of-thrones-finally-outrunning-the-books-is-a-good-thing/#6bfc36c7524b) as an indicator for when Game of Thrones departed from the books. 
 # Creating a dummy variable - all episodes after season 4 finale will be counted as "departed from the books" (1) otherwise (0)
+for(i in 1:73){
+  Thrones$depart <- ifelse(Thrones$season>4, "1", "0")
+}
 
 ```
 
