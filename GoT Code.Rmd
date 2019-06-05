@@ -371,7 +371,14 @@ mod.out2 <- stm(documents = out2$documents,
 summary(mod.out2)
 ```
 
-# Part 6: Regression Analysis
+# Part 6: Authorial Studies
+
+``` {r}
+# Examining the top 3 rated directors in Game of Thrones: is there a statistically significant difference in terms of rating if they did/didn't direct an episode?
+
+```
+
+# Part 7: Regression Analysis
 
 ``` {r}
 # A low-level example: does nudity affect rating?
