@@ -453,3 +453,4 @@ Thronesfactors <- lm(rating ~ depart + charascore + DandD, data = Thrones)
 summary(Thronesfactors)
 ```
 
+Clearly, D and D are the greatest factor in terms of rating. 
