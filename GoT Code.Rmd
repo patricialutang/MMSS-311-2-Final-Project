@@ -3,15 +3,42 @@ title: 'Game of Thrones: IMDb Scraping and Analysis'
 author: "Patricia Tang"
 date: "5/20/2019"
 output: pdf_document
+fontsize: 12pt
+colorlinks: true
+toccolor: 'black'
+linkcolor: 'cyan'
+linktocpages: true
+number_sections: true
+header-includes: 
+   - \usepackage{titletoc}
+   - \usepackage{appendix}
+   - \usepackage{booktabs}
+   - \usepackage{setspace}\doublespacing
+   - \usepackage{indentfirst}
+   - \setlength\parindent{24pt}
+   - \usepackage{setspace}\doublespacing
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Part 1: Scraping the Data
+```{r, include=FALSE}
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=40),tidy=TRUE)
+```
 
-``` {r}
+# Introduction
+
+Game of Thrones was one of the most popular television shows of all time. And, given the recent dropoff in quality of the show's eighth and final season, many individuals are attempting to determine what exactly makes a good Game of Thrones episode so compelling and what makes a bad Game of Thrones episode so revolting. In order to examine this, I used IMDb’s database of Game of Thrones episodes and their respective content keywords, synopsis information, and creator information to answer the following question: what parameters affect user rating and sentiment for a Game of Thrones episode, and what factors go into the making of a highly-rated episode?
+
+More concretely, I first use frequency analysis to examine the changing state of Game of Thrones over time as well as trends in content and authorship. Next, I use t-tests, traditional linear regression, regression discontinuity design, and traditional multiple regression to explore how general content, plot details, authorship, and the availability of book material to adapt to screen affect the rating of a Game of Thrones episode, as well as to determine which of these factors is most important in the making of a good Game of Thrones episode.
+
+# Scraping the Data
+
+This section contains code for scraping the IMDb website for Game of Thrones, including clicking from the main directory into individual episode pages and keyword pages. This was done to generate information for analysis. 
+
+``` {r, results = "hide", include = "FALSE"}
 library(xml2)
 library(rvest)
 library(tm)
@@ -20,8 +47,12 @@ library(broom)
 library(tidytext)
 library(ggplot2)
 library(lubridate)
+library(plyr)
+library(stringr)
 library(dplyr)
 ```
+
+Included below is code for scraping general information about Game of Thrones episodes from IMDb, the Internet Movie Database. This includes: season, episode title, episode number (within the season, not in general), a text description of each episode (kind of like a synopsis), rating score (user-generated based on IMDb users), episode airdate, and pre-link info (for later). 
 
 ``` {r}
 # from Napon - GENERAL information about episodes. no keywords, no directors, etc. 
@@ -42,12 +73,16 @@ get_info <- function(x){
 Thrones <- lapply(1:8, get_info) %>% bind_rows()
 ```
 
+Included below is code for filling out links to episode pages via the aforementioned pre-link info. 
+
 ``` {r}
 # to get full links
 for(i in 1:73){
   Thrones$links[i] <- paste("https://www.imdb.com", Thrones$links[i], sep ='')
 }
 ```
+
+Next, I created a new set of links per page in order to click through to the separate keyword pages per episode. The following code was created after analyzing IMDb's URL formats for these pages. 
 
 ``` {r}
 # to get href links for keyword scraping
@@ -62,6 +97,8 @@ for(i in 1:73){
 }
 ```
 
+Included below is code scraping keyword data. 
+
 ``` {r}
 # to get keyword data
 for(i in 1:73){
@@ -70,6 +107,8 @@ for(i in 1:73){
     html_text %>% paste(collapse = "\n\n")
 }
 ```
+
+I then create new links in order to find a new page on the IMDb site per episode for casting information; this code was created after analyzing the URLs of these cast pages per episode. 
 
 ``` {r}
 # to get directors/writing credits
@@ -80,14 +119,7 @@ for(i in 1:73){
 }
 ```
 
-``` {r}
-# to get credit data
-for(i in 1:73){
-  link = as.character(Thrones$creditlinks[i])
-  Thrones$credits[i] <- read_html(link) %>% html_nodes("#fullcredits_content a") %>%
-    html_text %>% paste(collapse = "\n\n")
-}
-```
+Included below is code scraping for directorial credits. Since the teams on Game of Thrones stay relatively static with two showrunners consistently heading writing and production teams staying fairly stable, directors can be seen as varying sources of authorship per episode. 
 
 ``` {r}
 # to get directorial credit.
@@ -96,10 +128,13 @@ for(i in 1:73){
   Thrones$director[i] <- read_html(link) %>% html_nodes(".simpleCreditsTable:nth-child(2)") %>%
     html_text %>% paste(collapse = "\n\n")
 }
-
 ```
 
-# Part 2: Prepping for Text Analysis
+# Prepping for Text Analysis
+
+Here, I prep DTMs for keyword and text documents. This is used later in frequency analysis. 
+
+IMDb lists keywords one-by-one in a list without grammar or punctuation, so there is no need here to do additional preparations such as removing punctuation. 
 
 ``` {r}
 # DTM for keywords
@@ -107,6 +142,8 @@ ThronesCorpus <- VCorpus(VectorSource(Thrones$keywords)) %>% tm_map(removeWords,
 KeywordDTM = DocumentTermMatrix(ThronesCorpus) 
 KeywordDTMclean = KeywordDTM %>% tidy()
 ```
+
+The DTM for synopsis text is prepared differently from that of the keywords due to the complete sentences that consist of synopsis text. 
 
 ``` {r}
 # DTM for text
@@ -117,7 +154,13 @@ TextDTMclean = TextDTM_copy %>% tidy()
 tfidf <- TextDTMclean %>%bind_tf_idf(term,document, count)
 ```
 
-# Part 3: Frequency Analysis
+# Frequency Analysis
+
+In order to characterize the IMDb dataset, I used frequency analysis to determine key trends and characteristics of Game of Thrones in regards to content, authorship, and rating over time. 
+
+## Frequency Analysis: Keywords
+
+Below, I analyze the most frequent-occuring Game of Thrones keywords (from IMDb's list of keywords per episode, NOT synopsis information) in order to derive what might characterize Game of Thrones as a TV show. 
 
 ```{r}
 # Keywords
@@ -127,9 +170,17 @@ freqdf <-as.data.frame(freq)
 top <- head(freq, 20)
 
 top_df <- data.frame(word = names(top), freq = top)
-Keywordfreq <- ggplot(data=top_df, aes(x=reorder(word, -freq), y=freq)) + geom_bar(stat="identity") + xlab("Keywords") + ylab("Frequency") + theme(legend.title = element_text(size = 3), legend.text = element_text(size = 0.01), axis.text.x=element_text(angle=45,hjust=1,vjust=0.5)) + ggtitle("Most Frequent Game of Thrones Keywords")
+Keywordfreq <- ggplot(data=top_df, aes(x=reorder(word, -freq), y=freq)) + geom_bar(stat="identity") + xlab("Keywords") + ylab("Frequency") + theme(legend.title = element_text(size = 3), legend.text = element_text(size = 0.01), axis.text.x=element_text(angle=45,hjust=1,vjust=1)) + ggtitle("Most Frequent Game of Thrones Keywords")
 Keywordfreq
 ```
+
+Accordingly, "nudity" is the most frequent keyword. For a TV show that is known for what is commonly known as "sexposition," where characters explain plot details while surrounded by gratuitious nudity, this is expected; however, one might be surprised at the sheer amount of nudity on the show as demonstrated by the frequency of "nudity" as a keyword. "Sex" is also a close sixth, corroborating this idea that Game of Thrones is known for "sexposition." 
+
+"Dragon," "horse" and "death" also rank fairly high in terms of frequency. This makes sense: in Game of Thrones, there are a lot of horses. Additionally, Game of Thrones is known for dragons. And, given that Danearys is a main character and is known for her interactions with both symbolic and real dragons, it makes sense that dragons seem to appear quite a lot in Game of Thrones, whether or not they actually appear actually on screen. 
+
+## Frequency Analysis: Synopsis
+
+Next, I analyze keywords from the synopsis information from each episode, scraped as the "text" field. This information was pre-processed so that information would be extractable. The importance of synopsis information differs from keyword data in that specific character appearances and storylines can be tracked. As such, the frequency of appearance of character names in the frequency analysis here denotes their relative importance. 
 
 ``` {r}
 # Synopsis
@@ -139,14 +190,20 @@ freqdf2 <-as.data.frame(freq2)
 top2 <- head(freq2, 20)
 
 top_df2 <- data.frame(word = names(top2), freq = top2)
-Textfreq <- ggplot(data=top_df2, aes(x=reorder(word, -freq), y=freq)) + geom_bar(stat="identity") + xlab("Keywords") + ylab("Frequency") + theme(legend.title = element_text(size = 3), legend.text = element_text(size = 0.01), axis.text.x=element_text(angle=45,hjust=1,vjust=0.5)) + ggtitle("Most Frequent Game of Thrones Synopsis Keywords")
+Textfreq <- ggplot(data=top_df2, aes(x=reorder(word, -freq), y=freq)) + geom_bar(stat="identity") + xlab("Keywords") + ylab("Frequency") + theme(legend.title = element_text(size = 3), legend.text = element_text(size = 0.01), axis.text.x=element_text(angle=45,hjust=1,vjust=1)) + ggtitle("Most Frequent Game of Thrones Synopsis Keywords")
 Textfreq
 ```
 
+As shown above, character names are at the top of the frequency analysis. This analysis is fairly insightful in regards to determing what the show thinks are the most important characters since if a certain character is more important, their plotline would be tracked within the synopsis information more often. Accordingly, Jon and Dany are the two most frequent occurrences, signifying that the show emphasizes them most. This makes sense, since they seem to be the two main characters of the Game of Thrones series. 
+
+Interestingly, the top results in this analysis all happen to be characters who live all the way up to Season 8; some even live all the way to the end of it. Thus, the results here might be biased since other main characters that the show particularly focused on (notably, Robb) died seasons ago and therefore would not be mentioned. 
+
+## Directors: Disparities in Authorship
+
+Next, we examine the difference in ratings between directors to assess the difference in authorship quality between different directors. 
+
 ``` {r}
 # Ratings by director 
-library(plyr)
-library(stringr)
 perdirect <- ddply(Thrones, .(director), summarize,  rating=mean(rating))
 perdirect$director <- sapply(perdirect$director,
                                     function(x) { gsub("\n", "", x) })
@@ -156,7 +213,6 @@ perdirect$director <- sapply(perdirect$director,
                                     function(x) { gsub(" ", "", x) })
 perdirect$director <- sapply(perdirect$director,
                                     function(x) {gsub("([[:lower:]])(?=[[:upper:]])", "\\1 ", x, perl = TRUE)})
-perdirect
 ```
 
 ``` {r}
@@ -164,168 +220,46 @@ Directrat <- ggplot(data=perdirect, aes(x=reorder(director, rating), y=rating)) 
 Directrat
 ```
 
-Clearly, we can see that Benioff and Weiss' individually-directed episodes are much lower in quality than those with other uncredited directorial personnel. We also note that episodes with D.B. Weiss credited first (before Benioff) are also slightly higher in rating. 
+It is important to note that showrunners David Benioff and D.B. Weiss have three different ways they have been credited. This is actually fairly significant: in the entries where (uncredited) is mentioned, Benioff and Weiss were not directing alone. However, the entry that has their names only indicates the ratings of episodes they directed alone. 
 
-Neil Marshall, Alex Graves, and Matt Shakman clearly directed the highest-rated episodes. Come back to this later. 
+Clearly, Benioff and Weiss' individually-directed episodes have much lower ratings than the episodes where they directed with other uncredited directorial personnel. From this, it can be extracted that Benioff and Weiss' involvement seems to have a detrimental effect on episode quality. I come back to this later to assess the statistical significance of this using a regression model. 
+
+Neil Marshall, Alex Graves, and Matt Shakman clearly directed the highest-rated episodes. I also come back to this later and determine if there is a statistically significant difference in regards to their authorship through t-testing. 
+
+## Episode Quality Over Time: A Significant Drop?
+
+Next, I track the episode quality (indicated by IMDb user rating) over time. 
 
 ``` {r}
 Thrones$epnumeral <- c(1:73)
-Bestepisodes <- ggplot(data=Thrones, aes(x=epnumeral, y=rating)) + geom_line() + geom_point() + ggtitle("GoT Episode Rating Over Time") + xlab("Episodes") + ylab("Rating") + theme(legend.title = element_text(size = 3), legend.text = element_text(size = 0.01))
+Bestepisodes <- ggplot(data=Thrones, aes(x=epnumeral, y=rating)) + geom_line() + geom_point() + ggtitle("GoT Episode Rating Over Time") + xlab("Episode Number (out of 73)") + ylab("Rating (out of 10)") + theme(legend.title = element_text(size = 3), legend.text = element_text(size = 0.01))
 Bestepisodes
 ```
 
-# Part 4: "Character Studies"
+Note the drop in rating for the end of the series; this evidences fans' disappointment with the ending of Game of Thrones. The precipitious fall of user ratings indicates the episodes in Game of Thrones' Season 8, indicating a stark disparity in quality between Season 8 of the series and the rest of the show. 
 
-``` {r}
-# Does episode rating change if we have popular characters in them?
-# Let's create indicator variables for whether or not popular characters appear. Key players as defined by prior frequency analysis in synopsis info: Jon, Daenerys, Tyrion, Arya, Sansa, Jaime, Cersei, Theon, Robb, Bran, Sam, Stannis. 
-# (Too many characters, let's keep it simple!!)
-```
+However, showrunners Benioff and Weiss deviated from the books much earlier than Season 8; I examine the effect of this deviation later in a regression discontinuity model. 
 
-``` {r}
-# function for later
-FUNction <- function(x) {
-  c(min = min(x), max = max(x), 
-    mean = mean(x), median = median(x), 
-    std = sd(x))
-}
-```
+# Building The "Character Score"
+
+Given that synopsis information is not representative of which characters show up in a given episode since synopsis information often leaves much out, it seems invalid to run t-tests per character to determine the statistical significance of their appearances. Thus, in order to determine whether or not character appearances are correlated with episode rating, I create an aggregate variable that I call a character "score" indicating how many of these popular characters are present in a given episode's synopsis. While this might at first be apparent as an indicator for fan investment in a given episode, it might also serve as an indicator of quality; if a given episode features a number of characters, it might also involve more interconnected storylines and more character-heavy storylines involving political intrigue and interactions. 
 
 ``` {r}
 Thrones$jon <- ifelse(str_detect(Thrones$text, "Jon") == "TRUE", "1", "0") 
-tapply(Thrones$rating, Thrones$jon, FUNction)
-cbind(Presence = unique(Thrones$jon), 
-      do.call(rbind, tapply(Thrones$rating, Thrones$jon, FUNction)))
-```
-
-``` {r}
-chisq.test(table(Thrones$rating, Thrones$jon))
-```
-
-``` {r}
-Thrones$dany <- ifelse(str_detect(Thrones$text, "Daenerys") == "TRUE", "1", "0") 
-tapply(Thrones$rating, Thrones$dany, FUNction)
-cbind(Presence = unique(Thrones$dany), 
-      do.call(rbind, tapply(Thrones$rating, Thrones$dany, FUNction)))
-```
-
-``` {r}
-chisq.test(table(Thrones$rating, Thrones$dany))
-```
-
-``` {r}
+Thrones$dany <- ifelse(str_detect(Thrones$text, "Daenerys") == "TRUE", "1", "0")
 Thrones$tyrion <- ifelse(str_detect(Thrones$text, "Tyrion") == "TRUE", "1", "0") 
-tapply(Thrones$rating, Thrones$tyrion, FUNction)
-cbind(Presence = unique(Thrones$tyrion), 
-      do.call(rbind, tapply(Thrones$rating, Thrones$tyrion, FUNction)))
-```
-
-``` {r}
-chisq.test(table(Thrones$rating, Thrones$tyrion))
-```
-
-``` {r}
 Thrones$arya <- ifelse(str_detect(Thrones$text, "Arya") == "TRUE", "1", "0") 
-tapply(Thrones$rating, Thrones$arya, FUNction)
-cbind(Presence = unique(Thrones$arya), 
-      do.call(rbind, tapply(Thrones$rating, Thrones$arya, FUNction)))
-```
-
-``` {r}
-chisq.test(table(Thrones$rating, Thrones$arya))
-```
-
-``` {r}
 Thrones$sansa <- ifelse(str_detect(Thrones$text, "Sansa") == "TRUE", "1", "0") 
-tapply(Thrones$rating, Thrones$sansa, FUNction)
-cbind(Presence = unique(Thrones$sansa), 
-      do.call(rbind, tapply(Thrones$rating, Thrones$sansa, FUNction)))
-```
-
-``` {r}
-chisq.test(table(Thrones$rating, Thrones$sansa))
-```
-
-``` {r}
 Thrones$jaime <- ifelse(str_detect(Thrones$text, "Jaime") == "TRUE", "1", "0")
-tapply(Thrones$rating, Thrones$jaime, FUNction)
-cbind(Presence = unique(Thrones$jaime), 
-      do.call(rbind, tapply(Thrones$rating, Thrones$jaime, FUNction)))
-```
-
-``` {r}
-chisq.test(table(Thrones$rating, Thrones$jaime))
-```
-
-``` {r}
 Thrones$cersei <- ifelse(str_detect(Thrones$text, "Cersei") == "TRUE", "1", "0")
-tapply(Thrones$rating, Thrones$cersei, FUNction)
-cbind(Presence = unique(Thrones$cersei), 
-      do.call(rbind, tapply(Thrones$rating, Thrones$cersei, FUNction)))
-```
-
-``` {r}
-chisq.test(table(Thrones$rating, Thrones$cersei))
-```
-
-``` {r}
 Thrones$theon <- ifelse(str_detect(Thrones$text, "Theon") == "TRUE", "1", "0")
-tapply(Thrones$rating, Thrones$theon, FUNction)
-cbind(Presence = unique(Thrones$theon), 
-      do.call(rbind, tapply(Thrones$rating, Thrones$theon, FUNction)))
-```
-
-``` {r}
-chisq.test(table(Thrones$rating, Thrones$theon))
-```
-
-``` {r}
 Thrones$robb <- ifelse(str_detect(Thrones$text, "Robb") == "TRUE", "1", "0")
-tapply(Thrones$rating, Thrones$robb, FUNction)
-cbind(Presence = unique(Thrones$robb), 
-      do.call(rbind, tapply(Thrones$rating, Thrones$robb, FUNction)))
-```
-
-``` {r}
-chisq.test(table(Thrones$rating, Thrones$robb))
-```
-
-``` {r}
 Thrones$bran <- ifelse(str_detect(Thrones$text, "Bran") == "TRUE", "1", "0")
-tapply(Thrones$rating, Thrones$bran, FUNction)
-cbind(Presence = unique(Thrones$bran), 
-      do.call(rbind, tapply(Thrones$rating, Thrones$bran, FUNction)))
-```
-
-``` {r}
-chisq.test(table(Thrones$rating, Thrones$bran))
-```
-
-``` {r}
 Thrones$sam <- ifelse(str_detect(Thrones$text, "Sam") == "TRUE", "1", "0")
-tapply(Thrones$rating, Thrones$sam, FUNction)
-cbind(Presence = unique(Thrones$sam), 
-      do.call(rbind, tapply(Thrones$rating, Thrones$sam, FUNction)))
-```
-
-``` {r}
-chisq.test(table(Thrones$rating, Thrones$sam))
-```
-
-``` {r}
 Thrones$stannis <- ifelse(str_detect(Thrones$text, "Stannis") == "TRUE", "1", "0")
-tapply(Thrones$rating, Thrones$stannis, FUNction)
-cbind(Presence = unique(Thrones$stannis), 
-      do.call(rbind, tapply(Thrones$rating, Thrones$stannis, FUNction)))
 ```
 
 ``` {r}
-chisq.test(table(Thrones$rating, Thrones$sam))
-```
-
-``` {r}
-# Creating an aggregate variable - character "score" (how many popular characters show up in a given episode's synopsis?)
-# Jon, Daenerys, Tyrion, Arya, Sansa, Jaime, Cersei, Theon, Robb, Bran, Sam, Stannis
 Thrones$jon <- as.numeric(Thrones$jon)
 Thrones$dany <- as.numeric(Thrones$dany)
 Thrones$tyrion <- as.numeric(Thrones$tyrion)
@@ -341,110 +275,88 @@ Thrones$stannis <- as.numeric(Thrones$stannis)
 Thrones$charascore <- Thrones$jon + Thrones$dany + Thrones$tyrion + Thrones$arya + Thrones$sansa + Thrones$jaime + Thrones$cersei + Thrones$theon + Thrones$robb + Thrones$bran + Thrones$sam + Thrones$stannis
 ```
 
-# Part 5: Topic Models
+I then use this character score as an indicator variable for the number of major characters in a given episode;  will use this within regression analysis. 
 
-``` {r, results = "hide"}
-# Keywords, new VCorpus (stemmed)
-library(topicmodels)
-library(stm)
-KeyCorpus2 <- VCorpus(VectorSource(Thrones$keywords)) %>% tm_map(removePunctuation) %>% tm_map(tolower) %>% tm_map(removeWords, stopwords("english")) %>% tm_map(stemDocument) %>% tm_map(PlainTextDocument)
-KeyDTM2 = DocumentTermMatrix(KeyCorpus2) 
+# Authorial Studies
 
-out <- stm::readCorpus(KeyDTM2, type = 'slam')
-mod.out <- stm(documents = out$documents,
-               vocab = out$vocab,
-               K = 3, 
-               data = Thrones)
-summary(mod.out)
-```
+Next, I examine using t-tests whether or not there is a statistically significant difference in terms of rating if a top-rated director did or didn't direct an episode. 
 
-``` {r, results = "hide"}
-# Text, new VCorpus (stemmed)
-TextCorpus2 <- VCorpus(VectorSource(Thrones$text)) %>% tm_map(removePunctuation) %>% tm_map(tolower) %>% tm_map(removeWords, stopwords("english")) %>% tm_map(stemDocument) %>% tm_map(PlainTextDocument)
-TextDTM2 = DocumentTermMatrix(TextCorpus2) 
+Here, I assume for simplicity that the "top-rated" directors are the top 3 directors by episode rating: Neil Marshall, Alex Graves, and Matt Shakman.
 
-out2 <- stm::readCorpus(TextDTM2, type = 'slam')
-mod.out2 <- stm(documents = out2$documents,
-               vocab = out2$vocab,
-               K = 4, 
-               data = Thrones)
-summary(mod.out2)
-```
+Note for t-tests: I assume a p-value significance level of 0.05. 
 
-# Part 6: Authorial Studies
+## Neil Marshall
 
 ``` {r}
-# Examining the top 3 rated directors in Game of Thrones: is there a statistically significant difference in terms of rating if they did/didn't direct an episode?
-
+Thrones$neilm <- ifelse(str_detect(Thrones$director, "Neil Marshall") == "TRUE", "1", "0")
+t.test(Thrones$rating~Thrones$neilm)
 ```
 
-# Part 7: Regression Analysis
+We see a statistically significant difference here; thus, we use IMDb information to delve deeper into which episodes Marshall directed in order to determine the source of this correlation. As it turns out, Marshall only directed two episodes: "Blackwater" (The fabled Battle of the Blackwater) and "The Watchers on the Wall" (Wildling assault on Castle Black and Ygritte's death). These are both storyline-defining and iconic episodes in Game of Thrones; they are also episodes that focus solely on the battles within them. Thus, Marshall directs episodes with major "key moments" and spectacles in them and without much complexity, potentially contributing to this correlation. 
+
+## Alex Graves
 
 ``` {r}
-# A low-level example: does nudity affect rating?
-library(stringr)
-Thrones$ND <- ifelse(str_detect(Thrones$keywords, "nudity") == "TRUE", "1", "0") 
-Thrones$ND <- as.numeric(Thrones$ND)
+Thrones$alexg <- ifelse(str_detect(Thrones$director, "Alex Graves") == "TRUE", "1", "0")
+t.test(Thrones$rating~Thrones$alexg)
 ```
 
+We see a statistically significant difference here; thus, we use IMDb information to delve deeper into which episodes Graves directed in order to determine the source of this correlation. IMDb states that Graves directed key storyline-defining and iconic episodes in Game of Thrones, such as "And Now His Watch Has Ended" (Dany purchases the Unsullied) and "The Lion and the Rose" (Joffrey's death). Thus, Graves directs episodes with major "key moments" in them, potentially contributing to this correlation. 
+
+## Matt Shakman
+
 ``` {r}
-NDlinear <- lm(Thrones$rating ~ Thrones$ND, data = Thrones)
-summary(NDlinear)
+Thrones$matts <- ifelse(str_detect(Thrones$director, "Matt Shakman") == "TRUE", "1", "0")
+t.test(Thrones$rating~Thrones$matts)
 ```
 
-Relationship between nudity and Game of Thrones episode rating is not statistically significant. 
+No statistically significant difference.
+
+# Regression Analysis
+
+Lastly, I use regression analysis to determine how general content, plot details, authorship, and the availability of book material to adapt to screen affect the rating of a Game of Thrones episode, as well as to determine which of these factors is most important in the making of a good Game of Thrones episode.
+
+## Simple Linear Regression: Character Score
+
+First, I run a simple linear regression on character score (as defined previously) and episode rating. 
+
+Note: for this section, I assume a significance level of 0.05. 
 
 ``` {r}
-# What about violence?
-library(stringr)
-Thrones$violence <- ifelse(str_detect(Thrones$keywords, "violence") == "TRUE", "1", "0") 
-Thrones$violence <- as.numeric(Thrones$violence)
-```
-
-``` {r}
-Violencelinear <- lm(Thrones$rating ~ Thrones$violence, data = Thrones)
-summary(Violencelinear)
-```
-
-Relationship between violence and Game of Thrones episode rating is not statistically significant. 
-
-``` {r}
-# Chara score 
 Charalinear <- lm(Thrones$rating ~ Thrones$charascore, data = Thrones)
 summary(Charalinear)
 ```
 
-Statistically significant relationship between character score (as defined earlier) and rating. Thus, while individual characters did not seem to affect rating (as per chi-squared test), rating seems to be affected by the number of characters highlighted in a given episode. 
+There is a statistically significant relationship between character score (as defined earlier) and rating. Thus, while individual characters did not seem to affect rating (as per chi-squared test), rating seems to be positively correlated with the number of characters highlighted in a given episode. 
+
+## Regression Discontinuity: Rating By Availability of Book Material
+
+In order to determine whether or not the availability of book material changed episode ratings and thus quality, I used a regresion discontinuity model. Using a 2015 article from Forbes (https://www.forbes.com/sites/insertcoin/2015/04/12/why-game-of-thrones-finally-outrunning-the-books-is-a-good-thing/#6bfc36c7524b) as a source, I defined the cutoff point to be the break between Seasons 4 and 5. 
+
+``` {r}
+# Regression discontinuity model - rating vs. book material
+library(rdd)
+reg.1=RDestimate(rating~epnumeral,data=Thrones,cutpoint = 41)
+plot(reg.1)
+title(main="Episode Rating Over Time", xlab="Episode Number",ylab="User Rating (out of 10)")
+```
+
+``` {r}
+summary(reg.1)
+```
+
+By this, we see a statistically significant difference in mean ratings, where episodes after Season 4 on average had lower mean ratings. Thus, episode rating is correlated with the availability of book material. 
+
+## Multiple Regression: What Is The Biggest Factor?
+
+Next, I use multiple regression to answer the following question: what is the biggest factor in terms of episode quality - character score (how many characters that people like are in an episode), whether or not an episode was directed by an outside talent (not the writers of the show themselves), or whether or not book material was still there to guide the writing team (as defined by article)?
+```
 
 ``` {r}
 # To determine involvement of directors - dummy variable for whether or not an episode was directed by an outside force or by the two writers (D&D colloquially)
 # Since they are credited together usually, we can use one of the two
 Thrones$DandD <- ifelse(str_detect(Thrones$director, "D.B. Weiss") == "TRUE", "1", "0") 
 Thrones$DandD <- as.numeric(Thrones$DandD)
-```
-
-``` {r}
-# to test methodology
-test <- ddply(Thrones, .(director), summarize,  rating=mean(DandD))
-```
-
-``` {r}
-# Determining if a departure from the books affects episode quality. 
-
-# Using this article from 2015 (https://www.forbes.com/sites/insertcoin/2015/04/12/why-game-of-thrones-finally-outrunning-the-books-is-a-good-thing/#6bfc36c7524b) as an indicator for when Game of Thrones departed from the books. 
-```
-
-``` {r}
-# Regression discontinuity model - rating vs. book material
-reg.1=RDestimate(rating~epnumeral,data=Thrones,cutpoint = 41)
-plot(reg.1)
-title(main="Episode Rating Over Time", xlab="Episode Number",ylab="User Rating (out of 10)")
-```
-
-clearly a dropoff after episode 40.
-
-``` {r}
-# What is the biggest factor in terms of episode quality - character score (how many characters that people like are in an episode), whether or not an episode was directed by an outside talent (not the writers of the show themselves), whether or not book material was still there to guide the writing team (as defined by article)?
 ```
 
 ``` {r}
@@ -460,4 +372,9 @@ Thronesfactors <- lm(rating ~ depart + charascore + DandD, data = Thrones)
 summary(Thronesfactors)
 ```
 
-Clearly, D and D are the greatest factor in terms of rating. 
+All factors here are statistically significant here but, clearly, the directorial involvement of Benioff and Weiss is the greatest factor in terms of rating as determined by the magnitude of coefficient in this model. Thus, there is a correlation between Benioff and Weiss making artistic choices about a Game of Thrones episode and the subsequent quality of said episode. 
+
+# Conclusion 
+
+Through examining content, plot details, authorship, and the availability of source material, I determine that all factors here are more or less correlated with episode rating to some extent, and that the greatest factor in terms of episode rating was the directorial involvement of Benioff and Weiss is the greatest factor in terms of rating as determined by the magnitude of coefficient in this model. This lends credence to recent criticism of Benioff and Weiss' artistic merit, and shows that increases in their involvement within Game of Thrones is correlated with decreases in episode quality. 
+
