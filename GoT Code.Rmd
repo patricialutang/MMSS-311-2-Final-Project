@@ -1,7 +1,7 @@
 ---
 title: 'Game of Thrones: IMDb Scraping and Analysis'
 author: "Patricia Tang"
-date: "5/20/2019"
+date: "6/10/2019"
 output: pdf_document
 fontsize: 12pt
 colorlinks: true
@@ -333,9 +333,12 @@ There is a statistically significant relationship between character score (as de
 
 In order to determine whether or not the availability of book material changed episode ratings and thus quality, I used a regresion discontinuity model. Using a 2015 article from Forbes (https://www.forbes.com/sites/insertcoin/2015/04/12/why-game-of-thrones-finally-outrunning-the-books-is-a-good-thing/#6bfc36c7524b) as a source, I defined the cutoff point to be the break between Seasons 4 and 5. 
 
-``` {r}
+``` {r, results = "hide"}
 # Regression discontinuity model - rating vs. book material
 library(rdd)
+```
+
+``` {r}
 reg.1=RDestimate(rating~epnumeral,data=Thrones,cutpoint = 41)
 plot(reg.1)
 title(main="Episode Rating Over Time", xlab="Episode Number",ylab="User Rating (out of 10)")
